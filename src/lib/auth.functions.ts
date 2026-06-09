@@ -1,5 +1,8 @@
 import { createServerFn } from "@tanstack/react-start";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { z } from "zod";
+
+import type { Database } from "@/integrations/supabase/types";
 
 const resolveLoginSchema = z.object({
   identifier: z.string().trim().min(3).max(255),
@@ -38,7 +41,7 @@ const demoAccounts: DemoAccount[] = [
 ];
 
 async function findUserIdByEmail(
-  supabaseAdmin: Awaited<ReturnType<typeof import("@/integrations/supabase/client.server")>>["supabaseAdmin"],
+  supabaseAdmin: SupabaseClient<Database>,
   email: string,
 ) {
   let page = 1;
@@ -46,7 +49,7 @@ async function findUserIdByEmail(
     const { data, error } = await supabaseAdmin.auth.admin.listUsers({ page, perPage: 200 });
     if (error) throw new Error(`تعذر قراءة حسابات الدخول: ${error.message}`);
 
-    const found = data.users.find((user) => user.email?.toLowerCase() === email.toLowerCase());
+    const found = data.users.find((user: { email?: string | null; id?: string }) => user.email?.toLowerCase() === email.toLowerCase());
     if (found?.id) return found.id;
     if (data.users.length < 200) break;
     page += 1;
