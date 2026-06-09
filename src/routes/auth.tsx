@@ -9,7 +9,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { supabase } from "@/integrations/supabase/client";
-import { resolveEmailByIdentifier } from "@/lib/auth.functions";
+import { ensureDemoAccounts, resolveEmailByIdentifier } from "@/lib/auth.functions";
 import { getClientRoles } from "@/lib/auth-client";
 import { roleHomePath } from "@/lib/roles";
 
@@ -33,6 +33,7 @@ export const Route = createFileRoute("/auth")({
 function AuthPage() {
   const navigate = useNavigate();
   const resolveIdentity = useServerFn(resolveEmailByIdentifier);
+  const bootstrapDemoAccounts = useServerFn(ensureDemoAccounts);
 
   const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
@@ -44,6 +45,12 @@ function AuthPage() {
     if (cached) setIdentifier(cached);
   }, []);
 
+  useEffect(() => {
+    void bootstrapDemoAccounts().catch(() => {
+      // no-op: login can still continue for non-demo users
+    });
+  }, [bootstrapDemoAccounts]);
+
   const submit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (!identifier.trim() || !password) {
@@ -53,6 +60,7 @@ function AuthPage() {
 
     setIsLoading(true);
     try {
+      await bootstrapDemoAccounts();
       const { email } = await resolveIdentity({ data: { identifier: identifier.trim() } });
       const { error } = await supabase.auth.signInWithPassword({ email, password });
       if (error) throw new Error(error.message);
